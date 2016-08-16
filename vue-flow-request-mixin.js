@@ -1,5 +1,7 @@
 ;(function(){
 
+    var Vue = require('vue');
+
     var jsonpID = +new Date(),
         document = window.document,
         key,
@@ -10,22 +12,50 @@
         jsonType = 'application/json',
         htmlType = 'text/html',
         blankRE = /^\s*$/,
-        originAnchor = document.createElement('a');
+        originAnchor = document.createElement('a'),
+        queue=[],
+        maxQueueLength;
 
-    originAnchor.href = window.location.href
+    originAnchor.href = window.location.href;
 
+
+    function request_init(opts){
+        maxQueueLength=opts&&opts.maxQueueLength?opts.maxQueueLength:100;
+        Vue.flow.model('$request',{
+            default:{
+                pending: true,
+                queue:[],//{status,...extra,id:''}
+            },
+			remove:function(id){
+				var queue = this.getState().queue,queu=[];
+				for(var i=0,l=queue.length;i<l;i++)
+					if(queue[i].id!==id) queu.push(queue[i]);
+				return {queue:queu};
+			}
+        });
+        return request;
+    }
 
     function request(options){
         var settings = Object.assign({}, options || {}),
             urlAnchor, hashIndex;
-        for (key in request.ajaxSettings) if (settings[key] === undefined) settings[key] = request.ajaxSettings[key]
+        for (key in request.ajaxSettings) if (settings[key] === undefined) settings[key] = request.ajaxSettings[key];
+
+        settings.extra=settings.extra||{};
+        settings.extra.id=(Math.random()+(new Date).getTime()).toString().replace(/\./g,'');
+        settings.extra.status ='pending';
+
+        if(queue.length==maxQueueLength) queue.pop();
+        queue.unshift(settings.extra);
+
+        Vue.flow.dispatch('$request', {queue:queue});
+        Vue.flow.dispatch('$request', {pending:true});
 
         if (!settings.crossDomain) {
-            urlAnchor = document.createElement('a')
-            urlAnchor.href = settings.url
-            // cleans up URL for .href (IE only), see https://github.com/madrobby/zepto/pull/1049
-            urlAnchor.href = urlAnchor.href
-            settings.crossDomain = (originAnchor.protocol + '//' + originAnchor.host) !== (urlAnchor.protocol + '//' + urlAnchor.host)
+            urlAnchor = document.createElement('a');
+            urlAnchor.href = settings.url;
+            urlAnchor.href = urlAnchor.href;
+            settings.crossDomain = (originAnchor.protocol + '//' + originAnchor.host) !== (urlAnchor.protocol + '//' + urlAnchor.host);
         }
 
         if (!settings.url) settings.url = window.location.toString()
@@ -48,17 +78,21 @@
             return ajaxJSONP(settings);
         }
 
-        var promise= new Promise(function(resolve, reject){
+
+		var xhr;
+        var promise= new Promise(function(resolve){
 
             var mime = settings.accepts[dataType],
                 headers = { },
                 setHeader = function(name, value) { headers[name.toLowerCase()] = [name, value] },
                 protocol = /^([\w-]+:)\/\//.test(settings.url) ? RegExp.ajax1 : window.location.protocol,
-                xhr = settings.xhr(),
-                nativeSetHeader = xhr.setRequestHeader,
+                nativeSetHeader,
                 abortTimeout;
 
-            promise.xhr=xhr;
+            xhr=settings.xhr();
+            //xhr.requestId=settings.extra.id;
+
+			var nativeSetHeader = xhr.setRequestHeader;
 
             if (!settings.crossDomain) setHeader('X-Requested-With', 'XMLHttpRequest')
             setHeader('Accept', mime || '*/*');
@@ -94,27 +128,21 @@
                                 else if (dataType == 'json') result = blankRE.test(result) ? null : JSON.parse(result);
                             } catch (e) { error = e }
 
-                            if (error) return ajaxError(error, 'parsererror', xhr, settings, function(args){
-                                reject(args);
-                            })
+                            if (error) return ajaxError(error, 'parsererror', xhr, settings)
                         }
 
                         ajaxSuccess(result, xhr, settings, function(args){
                             resolve(args);
                         });
                     } else {
-                        ajaxError(xhr.statusText || null, xhr.status ? 'error' : 'abort', xhr, settings, function(args){
-                            reject(args);
-                        });
+                        ajaxError(xhr.statusText || null, xhr.status ? 'error' : 'abort', xhr, settings);
                     }
                 }
             }
 
             if (ajaxBeforeSend(xhr, settings) === false) {
                 xhr.abort()
-                ajaxError(null, 'abort', xhr, settings, function(args){
-                    reject(args);
-                });
+                ajaxError(null, 'abort', xhr, settings);
                 return;
             }
 
@@ -128,9 +156,7 @@
             if (settings.timeout > 0) abortTimeout = setTimeout(function(){
                 xhr.onreadystatechange = empty;
                 xhr.abort();
-                ajaxError(null, 'timeout', xhr, settings, function(args){
-                    reject(args);
-                })
+                ajaxError(null, 'timeout', xhr, settings)
             }, settings.timeout);
 
             // avoid sending empty string (#319);
@@ -138,24 +164,36 @@
 
         });
 
+		promise.xhr=xhr;
+		promise.id=settings.extra.id;
+
         return promise;
     }
     // triggers an extra global event "ajaxBeforeSend" that's like "ajaxSend" but cancelable
     function ajaxBeforeSend(xhr, settings) {
         if (settings.beforeSend(xhr, settings) === false )
-            return false
+            return false;
     }
+
     function ajaxSuccess(data, xhr, settings, resolve) {
-        var status = 'success'
-        settings.success(data, status, xhr)
-        if (resolve) resolve({data:data, status:status, xhr:xhr});
-        ajaxComplete(status, xhr, settings)
+        var status = 'success';
+        settings.success(data, status, xhr);
+        if (resolve) resolve(data);
+        settings.extra.status ='success';
+        Vue.flow.dispatch('$request', {queue:queue});
+        Vue.flow.dispatch('$request', {pending:getPending()});
+        ajaxComplete(status, xhr, settings);
     }
+
     // type: "timeout", "error", "abort", "parsererror"
-    function ajaxError(error, type, xhr, settings, reject) {
-        settings.error( xhr, type, error)
-        if (reject) reject({xhr:xhr, type:type, error:error});
-        ajaxComplete(type, xhr, settings)
+    function ajaxError(error, type, xhr, settings) {
+        settings.error( xhr, type, error);
+        settings.extra.status ='error';
+        settings.extra.errorType =type;
+        Vue.flow.dispatch('$request', {queue:queue});
+        Vue.flow.dispatch('$request', {pending:getPending()});
+        //console.log('@@@ajaxError',error,type,settings,xhr);
+        ajaxComplete(type, xhr, settings);
     }
     // status: "success", "notmodified", "error", "timeout", "abort", "parsererror"
     function ajaxComplete(status, xhr, settings) {
@@ -170,23 +208,36 @@
     // Empty function, used as default callback
     function empty() {}
 
+    function getPending(){
+        var pending=false;
+        for(var i=0,l=queue.length;i<l;i++) if(queue[i].status==='peding') {
+            pending=true;
+            break;
+        }
+        return pending;
+    }
+
 
 
     function ajaxJSONP(options){
-        if (!('type' in options)) return request.ajax(options);
+        if (!('type' in options)) return request.request(options);
+		var xhr;
+        var promise= new Promise(function(resolve) {
 
-        var promise= new Promise(function(resolve, reject) {
+			
 
             var _callbackName = options.jsonpCallback,
                 callbackName = (typeof _callbackName === 'function' ?
-                        _callbackName() : _callbackName) || ('Zepto' + (jsonpID++)),
+                        _callbackName() : _callbackName) || ('request' + (jsonpID++)),
                 script = document.createElement('script'),
                 originalCallback = window[callbackName],
                 responseData,
                 abort = function (errorType) {
                     handler({type: 'error'}, errorType || 'abort')
-                },
-                xhr = {abort: abort}, abortTimeout
+                }, abortTimeout;
+
+                xhr = {abort: abort};
+                //xhr.requestId = options.extra.id;
 
 
             function handler(e, errorType) {
@@ -196,9 +247,7 @@
                 script.onerror = null;
 
                 if (e.type == 'error' || !responseData) {
-                    ajaxError(null, errorType || 'error', xhr, options, function (args) {
-                        reject(args);
-                    })
+                    ajaxError(null, errorType || 'error', xhr, options)
                 } else {
                     ajaxSuccess(responseData[0], xhr, options, function (args) {
                         resolve(args);
@@ -207,9 +256,9 @@
 
                 window[callbackName] = originalCallback
                 if (responseData && typeof originalCallback === 'function')
-                    originalCallback(responseData[0])
+                    originalCallback(responseData[0]);
 
-                originalCallback = responseData = undefined
+                originalCallback = responseData = undefined;
             }
 
             script.onload = handler;
@@ -221,21 +270,24 @@
             }
 
             window[callbackName] = function () {
-                responseData = arguments
+                responseData = arguments;
             }
 
-            script.src = options.url.replace(/\?(.+)=\?/, '?ajax1=' + callbackName)
+            script.src = options.url.replace(/\?(.+)=\?/, '?callback=' + callbackName)
             document.head.appendChild(script)
 
             if (options.timeout > 0) abortTimeout = setTimeout(function () {
                 abort('timeout')
-            }, options.timeout)
+            }, options.timeout);
+
+			
 
         });
 
-        promise.xhr = xhr;
+		promise.xhr = xhr;
+		promise.id=options.extra.id;
 
-        return promise;
+		return promise;
 
     }
 
@@ -300,15 +352,15 @@
             options.url = appendQuery(options.url, options.data), options.data = undefined
     }
 
-    request.request = request;
+    
 
     // handle optional data/success arguments
     function parseArguments() {
-        var url, data, success=empty, error=empty, dataType;
-        for(var i=1,l=arguments.length;i<l;i++){
+        var url, data, success=empty, error=empty, dataType, silent = false;
+        for(var i=0,l=arguments.length;i<l;i++){
             switch(typeof arguments[i]){
                 case'string':
-                    if(!url) dataType = arguments[i];
+                    if(url) dataType = arguments[i];
                     else url = arguments[i];
                     break;
                 case'object':
@@ -317,6 +369,9 @@
                 case'function':
                     if(success===empty) success = arguments[i];
                     else error = arguments[i];
+                    break;
+                case 'boolean':
+                    silent = arguments[i];
                     break;
             }
         }
@@ -327,31 +382,34 @@
             , success: success
             , error: error
             , dataType: dataType
+            , silent: silent
         }
 
         function empty(){}
     }
 
+	request.request = request;
+
     request.get = function(/* url, data, success, error, dataType */){
-        return request.ajax(parseArguments.apply(null, arguments))
+        return request.request(parseArguments.apply(null, arguments))
     }
 
     request.post = function(/* url, data, success, error, dataType */){
         var options = parseArguments.apply(null, arguments)
         options.type = 'POST'
-        return request.ajax(options)
+        return request.request(options)
     }
 
-    request.getJSON = function(/* url, data, success, error */){
+    request.getJson = function(/* url, data, success, error */){
         var options = parseArguments.apply(null, arguments);
         options.dataType = 'json';
-        return request.ajax(options);
+        return request.request(options);
     }
 
     request.jsonp = function(/* url, data, success, error */){
         var options = parseArguments.apply(null, arguments);
         options.dataType = 'jsonp';
-        return request.ajax(options);
+        return request.request(options);
     }
 
 
@@ -389,12 +447,12 @@
 
 
     if (typeof module === 'object' && module.exports) {
-        module.exports = request
+        module.exports = request_init;
     }
     else if (typeof define === 'function' && define.amd) {
         define(function () {
-            return request
-        })
+            return request_init;
+        });
     }
 
 })();
