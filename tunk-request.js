@@ -23,22 +23,22 @@
 
         maxQueueLength=opts&&opts.maxQueueLength?opts.maxQueueLength:100;
 
-        function Request(){
+        function REQUEST(){
             this.dispatch({
                 pending: true,
                 queue:[],//{status,...extra,id:''}
             });
         }
 
-        Request.prototype.remove = function (id){
+        REQUEST.prototype.remove = function (id){
             var queue = this.getState().queue,queu=[];
             for(var i=0,l=queue.length;i<l;i++)
                 if(queue[i].id!==id) queu.push(queue[i]);
             return {queue:queu};
         };
 
-        tunk.action(Request.prototype,'remove');
-        tunk.extend(Request);
+        tunk.action(REQUEST.prototype,'remove');
+        tunk.extend(REQUEST);
 
         return request;
     }
