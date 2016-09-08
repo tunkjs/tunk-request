@@ -24,10 +24,10 @@
         maxQueueLength=opts&&opts.maxQueueLength?opts.maxQueueLength:100;
 
         function REQUEST(){
-            this.dispatch({
+            this.state={
                 pending: true,
                 queue:[],//{status,...extra,id:''}
-            });
+            };
         }
 
         REQUEST.prototype.remove = function (id){
