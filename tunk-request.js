@@ -30,12 +30,15 @@
             };
         }
 
-        REQUEST.prototype.remove = function (id){
-            var queue = this.getState().queue,queu=[];
-            for(var i=0,l=queue.length;i<l;i++)
-                if(queue[i].id!==id) queu.push(queue[i]);
-            return {queue:queu};
-        };
+        REQUEST.prototype={
+            constructor : REQUEST,
+            remove : function (id){
+                var queue = this.getState().queue,queu=[];
+                for(var i=0,l=queue.length;i<l;i++)
+                    if(queue[i].id!==id) queu.push(queue[i]);
+                return {queue:queu};
+            }
+        }
 
         tunk.action(REQUEST.prototype,'remove');
         tunk.extend(REQUEST);
