@@ -40,8 +40,8 @@
             }
         }
 
-        tunk.action(REQUEST.prototype,'remove');
-        tunk.extend(REQUEST);
+        tunk.createAction(REQUEST.prototype.remove, {async:true});
+        tunk.createModule(REQUEST);
 
         return request;
     }
