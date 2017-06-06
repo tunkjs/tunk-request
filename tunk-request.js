@@ -13,15 +13,27 @@
         htmlType = 'text/html',
         blankRE = /^\s*$/,
         originAnchor = document.createElement('a'),
-        queue=[],
-        maxQueueLength;
+        queue = [],
+        maxQueueLength,
+        hooks = {
+            onBeforeSend: function(){},
+            onComplite: function(){},
+            onSuccess: function(){},
+            onError: function(){}
+        };
 
     originAnchor.href = window.location.href;
 
 
     function request_init(opts){
-
-        maxQueueLength=opts&&opts.maxQueueLength?opts.maxQueueLength:100;
+        if(opts){
+            maxQueueLength = opts.maxQueueLength || 100;
+            hooks.onBeforeSend = opts.onBeforeSend || hooks.onBeforeSend;
+            hooks.onComplite = opts.onComplite || hooks.onComplite;
+            hooks.onSuccess = opts.onSuccess || hooks.onSuccess;
+            hooks.onError = opts.onError || hooks.onError;
+        }
+        
 
         function REQUEST(){
             this.state={
@@ -55,7 +67,7 @@
         settings.extra.id=(Math.random()+(new Date).getTime()).toString().replace(/\./g,'');
         settings.extra.status ='pending';
 
-        if(queue.length==maxQueueLength) queue.pop();
+        if(queue.length===maxQueueLength) queue.pop();
         queue.unshift(settings.extra);
 
         tunk.dispatch('REQUEST', {queue:queue, pending:true});
@@ -127,7 +139,7 @@
                             result = xhr.response
                         else {
                             result = xhr.responseText
-
+                            result = hooks.onComplite(result, settings) || result;
                             try {
                                 // http://perfectionkills.com/global-eval-what-are-the-options/
                                 // sanitize response accordingly if data filter callback provided
@@ -149,7 +161,7 @@
                 }
             }
 
-            if (ajaxBeforeSend(xhr, settings) === false) {
+            if (ajaxBeforeSend(xhr, settings) === false || hooks.onBeforeSend(xhr, settings) === false) {
                 xhr.abort()
                 ajaxError(null, 'abort', xhr, settings);
                 return;
@@ -186,6 +198,7 @@
 
     function ajaxSuccess(data, xhr, settings, resolve) {
         var status = 'success';
+        hooks.onSuccess(data, settings);
         settings.success(data, status, xhr);
         if (resolve) resolve(data);
         settings.extra.status ='success';
@@ -196,6 +209,7 @@
 
     // type: "timeout", "error", "abort", "parsererror"
     function ajaxError(error, type, xhr, settings) {
+        hooks.onError(error, settings);
         settings.error( xhr, type, error);
         settings.extra.status ='error';
         settings.extra.errorType =type;
