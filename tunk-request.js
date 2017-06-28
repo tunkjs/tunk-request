@@ -53,7 +53,7 @@
         }
 
         tunk.createAction(REQUEST.prototype.remove, {async:true});
-        tunk.createModule(REQUEST);
+        tunk.createModule('REQUEST', REQUEST);
 
         return request;
     }
@@ -441,16 +441,16 @@
     function serialize(params, obj, traditional, scope){
         var type, array = typeof obj ==='object' && obj.constructor === Array, hash = typeof obj ==='object' && obj.constructor ===Object;
         for(var key in obj){
-            type = typeof obj[x];
-            if(type ==='object' && obj[x].constructor ===Array) type = 'array';
+            type = typeof obj[key];
+            if(type ==='object' && obj[key].constructor ===Array) type = 'array';
             if (scope) key = traditional ? scope :
             scope + '[' + (hash || type == 'object' || type == 'array' ? key : '') + ']'
             // handle data in serializeArray() format
-            if (!scope && array) params.add(obj[x].name, obj[x].value)
+            if (!scope && array) params.add(obj[key].name, obj[key].value)
             // recurse into nested objects
             else if (type == "array" || (!traditional && type == "object"))
-                serialize(params, obj[x], traditional, key)
-            else params.add(key, obj[x])
+                serialize(params, obj[key], traditional, key)
+            else params.add(key, obj[key])
         }
     }
 
