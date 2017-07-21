@@ -2,7 +2,7 @@
 
     var tunk = require('tunk');
 
-    var jsonpID = +new Date(),
+    var jsonpID = 1,
         document = window.document,
         key,
         name,
@@ -83,8 +83,7 @@
         if ((hashIndex = settings.url.indexOf('#')) > -1) settings.url = settings.url.slice(0, hashIndex)
         serializeData(settings)
 
-        var dataType = settings.dataType, hasPlaceholder = /\?.+=\?/.test(settings.url)
-        if (hasPlaceholder) dataType = 'jsonp'
+        var dataType = settings.dataType;
 
         if (settings.cache === false || (
                 (!options || options.cache !== true) &&
@@ -93,15 +92,12 @@
             settings.url = appendQuery(settings.url, '_=' + Date.now())
 
         if ('jsonp' == dataType) {
-            if (!hasPlaceholder)
-                settings.url = appendQuery(settings.url,
-                    settings.jsonp ? (settings.jsonp + '=?') : settings.jsonp === false ? '' : 'callback=?')
             return ajaxJSONP(settings);
         }
 
 
         var xhr;
-        var promise= new Promise(function(resolve){
+        var promise= new Promise(function(resolve, reject){
 
             var mime = settings.accepts[dataType],
                 headers = { },
@@ -156,7 +152,8 @@
                             resolve(args);
                         });
                     } else {
-                        ajaxError(xhr.statusText || null, xhr.status ? 'error' : 'abort', xhr, settings);
+                        resolve();
+                        ajaxError({message:xhr.statusText || null}, xhr.status ? 'error' : 'abort', xhr, settings);
                     }
                 }
             }
@@ -209,8 +206,11 @@
 
     // type: "timeout", "error", "abort", "parsererror"
     function ajaxError(error, type, xhr, settings) {
+        error = error || {};
+        error.type = type;
+        error.message = error.message || type;
         hooks.onError(error, settings);
-        settings.error( xhr, type, error);
+        settings.error(error, xhr);
         settings.extra.status ='error';
         settings.extra.errorType =type;
         tunk.dispatch('REQUEST', {queue:queue});
@@ -245,66 +245,65 @@
     function ajaxJSONP(options){
         if (!('type' in options)) return request.request(options);
         var xhr;
-        var promise= new Promise(function(resolve) {
-
-
-
+        var promise= new Promise(function(resolve, reject) {
             var _callbackName = options.jsonpCallback,
                 callbackName = (typeof _callbackName === 'function' ?
-                        _callbackName() : _callbackName) || ('request' + (jsonpID++)),
+                        _callbackName() : _callbackName) || ('jsonp' + (jsonpID++)),
                 script = document.createElement('script'),
-                originalCallback = window[callbackName],
+                calledBack = false,
                 responseData,
+                originalCallback = window[callbackName] = function (data) {
+                    calledBack = true;
+                    responseData = data;
+                },
                 abort = function (errorType) {
-                    handler({type: 'error'}, errorType || 'abort')
+                    clean();
+                    resolve();
+                    ajaxError(null, errorType || 'error', xhr, options);
                 }, abortTimeout;
-
             xhr = {abort: abort};
-            //xhr.requestId = options.extra.id;
+
+            script.onload = function handler(e, errorType) {
+                clean();
+                setTimeout(function() {
+                    if(!calledBack) {
+                        clean();
+                        resolve();
+                        ajaxError({message: 'jsonp script error.'}, 'error', xhr, options);
+                    }else {
+                        ajaxSuccess(responseData, xhr, options, function (args) {
+                            resolve(args);
+                        });
+                    }
+                },1);
+            };
+            script.onerror = function handler(e, errorType) {
+                clean();
+                resolve();
+                ajaxError(null, errorType || 'error', xhr, options);
+            };
 
 
-            function handler(e, errorType) {
-                clearTimeout(abortTimeout);
-
-                script.onload = null;
-                script.onerror = null;
-
-                if (e.type == 'error' || !responseData) {
-                    ajaxError(null, errorType || 'error', xhr, options)
-                } else {
-                    ajaxSuccess(responseData[0], xhr, options, function (args) {
-                        resolve(args);
-                    })
-                }
-
-                window[callbackName] = originalCallback
-                if (responseData && typeof originalCallback === 'function')
-                    originalCallback(responseData[0]);
-
-                originalCallback = responseData = undefined;
-            }
-
-            script.onload = handler;
-            script.error = handler;
 
             if (ajaxBeforeSend(xhr, options) === false) {
                 abort('abort')
                 return xhr
             }
-
-            window[callbackName] = function () {
-                responseData = arguments;
-            }
-
-            script.src = options.url.replace(/\?(.+)=\?/, '?callback=' + callbackName)
+            options.data = options.data || {};
+            options.data.callback = callbackName;
+            script.src = options.url = appendQuery(options.url, param(options.data, options.traditional));
             document.head.appendChild(script)
 
             if (options.timeout > 0) abortTimeout = setTimeout(function () {
-                abort('timeout')
+                abort('timeout');
             }, options.timeout);
 
-
-
+            function clean(){
+                clearTimeout(abortTimeout);
+                script.onload = undefined;
+                script.onerror = undefined;
+                originalCallback = window[callbackName] = undefined;  
+            }
         });
 
         promise.xhr = xhr;
@@ -462,12 +461,8 @@
             this.push(escape(key) + '=' + escape(value))
         }
         serialize(params, obj, traditional)
-        return params.join('&').replace(/%20/g, '+')
+        return params.join('&').replace(/%20/g, '')
     }
-
-
-
-
 
     if (typeof module === 'object' && module.exports) {
         module.exports = request_init;
