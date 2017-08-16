@@ -461,7 +461,7 @@
             this.push(escape(key) + '=' + escape(value))
         }
         serialize(params, obj, traditional)
-        return params.join('&').replace(/%20/g, '')
+        return params.join('&')
     }
 
     if (typeof module === 'object' && module.exports) {
