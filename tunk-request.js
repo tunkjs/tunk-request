@@ -291,7 +291,7 @@
             }
             options.data = options.data || {};
             options.data.callback = callbackName;
-            script.src = options.url = appendQuery(options.url, param(options.data, options.traditional));
+            script.src = options.url = appendQuery(options.url, param(options.data));
             document.head.appendChild(script)
 
             if (options.timeout > 0) abortTimeout = setTimeout(function () {
@@ -369,7 +369,7 @@
     // serialize payload and append it to the URL for GET requests
     function serializeData(options) {
         if (options.processData && options.data && typeof options.data != "string")
-            options.data = param(options.data, options.traditional)
+            options.data = param(options.data)
         if (options.data && (!options.type || options.type.toUpperCase() == 'GET' || 'jsonp' == options.dataType))
             options.url = appendQuery(options.url, options.data), options.data = undefined
     }
@@ -437,30 +437,27 @@
 
     var escape = encodeURIComponent
 
-    function serialize(params, obj, traditional, scope){
+    function serialize(params, obj, scope){
         var type, array = typeof obj ==='object' && obj.constructor === Array, hash = typeof obj ==='object' && obj.constructor ===Object;
+        var namespace;
         for(var key in obj){
             type = typeof obj[key];
             if(type ==='object' && obj[key].constructor ===Array) type = 'array';
-            if (scope) key = traditional ? scope :
-            scope + '[' + (hash || type == 'object' || type == 'array' ? key : '') + ']'
-            // handle data in serializeArray() format
-            if (!scope && array) params.add(obj[key].name, obj[key].value)
-            // recurse into nested objects
-            else if (type == "array" || (!traditional && type == "object"))
-                serialize(params, obj[key], traditional, key)
-            else params.add(key, obj[key])
+            if (scope) namespace = scope + '[' + (hash || type == 'object' || type == 'array' ? key : '') + ']'
+            if (type == "array" || ( type == "object"))
+                serialize(params, obj[key], namespace || key);
+            else params.add(namespace || key, obj[key])
         }
     }
 
-    function param(obj, traditional){
+    function param(obj){
         var params = [];
         params.add = function(key, value) {
             if (typeof value === 'function') value = value()
             if (value == null) value = ""
             this.push(escape(key) + '=' + escape(value))
         }
-        serialize(params, obj, traditional)
+        serialize(params, obj)
         return params.join('&')
     }
 

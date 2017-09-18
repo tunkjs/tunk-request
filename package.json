@@ -1,6 +1,6 @@
 {
   "name": "tunk-request",
-  "version": "1.9.7",
+  "version": "1.9.8",
   "description": "browser asynchronous http requests for tunk, which supports async/await",
   "main": "tunk-request.js",
   "author": "steven chen <522702986@qq.com>",
