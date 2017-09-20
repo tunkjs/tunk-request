@@ -52,7 +52,7 @@
             }
         }
 
-        tunk.createAction(REQUEST.prototype.remove, {async:true});
+        tunk.createAction(REQUEST.prototype.remove);
         tunk.createModule('REQUEST', REQUEST);
 
         return request;
@@ -437,7 +437,7 @@
 
     var escape = encodeURIComponent
 
-    function serialize(params, obj, scope){
+    function serialize(params, obj, scope) {
         var type, array = typeof obj ==='object' && obj.constructor === Array, hash = typeof obj ==='object' && obj.constructor ===Object;
         var namespace;
         for(var key in obj){
