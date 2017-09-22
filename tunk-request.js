@@ -44,11 +44,14 @@
 
         REQUEST.prototype={
             constructor : REQUEST,
-            remove : function (id){
+            remove: function (id){
                 var queue = this.getState().queue,queu=[];
                 for(var i=0,l=queue.length;i<l;i++)
                     if(queue[i].id!==id) queu.push(queue[i]);
                 return {queue:queu};
+            },
+            update: function(state){
+                return state;
             }
         }
 
@@ -70,7 +73,7 @@
         if(queue.length===maxQueueLength) queue.pop();
         queue.unshift(settings.extra);
 
-        tunk.dispatch('REQUEST', {queue:queue, pending:true});
+        tunk.dispatch('REQUEST.update', {queue:queue, pending:true});
 
         if (!settings.crossDomain) {
             urlAnchor = document.createElement('a');
@@ -199,8 +202,8 @@
         settings.success(data, status, xhr);
         if (resolve) resolve(data);
         settings.extra.status ='success';
-        tunk.dispatch('REQUEST', {queue:queue});
-        tunk.dispatch('REQUEST', {pending:getPending()});
+        tunk.dispatch('REQUEST.update', {queue:queue});
+        tunk.dispatch('REQUEST.update', {pending:getPending()});
         ajaxComplete(status, xhr, settings);
     }
 
@@ -213,8 +216,8 @@
         settings.error(error, xhr);
         settings.extra.status ='error';
         settings.extra.errorType =type;
-        tunk.dispatch('REQUEST', {queue:queue});
-        tunk.dispatch('REQUEST', {pending:getPending()});
+        tunk.dispatch('REQUEST.update', {queue:queue});
+        tunk.dispatch('REQUEST.update', {pending:getPending()});
         //console.log('@@@ajaxError',error,type,settings,xhr);
         ajaxComplete(type, xhr, settings);
     }
