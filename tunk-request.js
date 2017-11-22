@@ -212,8 +212,8 @@
         error = error || {};
         error.type = type;
         error.message = error.message || type;
-        hooks.onError(error, settings);
-        settings.error(error, xhr);
+        hooks.onError(error, xhr, settings);
+        settings.error(error, xhr, settings);
         settings.extra.status ='error';
         settings.extra.errorType =type;
         tunk.dispatch('REQUEST.update', {queue:queue});
