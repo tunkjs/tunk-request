@@ -27,19 +27,36 @@ this.state = {
 ````
 ### Methods
 ````javascript
+import {create, action} from 'tunk';
 
-    request(Options);
+@create
+export default class app {
+    constructor(){ 
     
-    // 便捷方法，仅支持 url, data, success, error, dataType 参数，且参数顺序可不固定
-    // 第一个字符串 视为 url， 第一个function 视为 success
-    
-    request.get( url, data, success, error, dataType )
+        this.state = {
+        	hello: 'tunk-request'
+        };
 
-    request.post( url, data, success, error, dataType ) 
+        this.request(Options)
+    
+        // 便捷方法，仅支持 url, data, success, error, dataType 参数，且参数顺序可不固定
+        // 第一个字符串 视为 url， 第一个function 视为 success
 
-    request.getJson( url, data, success, error ) 
+        this.request.get( url, data, success, error, dataType )
 
-    request.jsonp( url, data, success, error ) 
+        this.request.post( url, data, success, error, dataType ) 
+
+        this.request.getJson( url, data, success, error ) 
+
+        this.request.jsonp( url, data, success, error ) 
+    }
+    @action
+    async getData(){
+      const res = await this.request.get( url, data, success, error, dataType )
+      return {hello: res.tunk.request}
+    }
+}
+    
 
 ````
 ### Options
