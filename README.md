@@ -30,8 +30,7 @@ this.state = {
 
     request(Options);
     
-    //
-    request.get( url, data, success, error, dataType )
+    request.get( url, data, success, error, dataType )
 
     request.post( url, data, success, error, dataType ) 
 
