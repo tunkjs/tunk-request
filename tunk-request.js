@@ -41,20 +41,20 @@
 
             var tunk = this;
 
-            tunk.createModule('REQUEST', {
+            tunk.Create('REQUEST', {
                 constructor: function REQUEST() {
                     this.state = {
                         pending: false,
                         queue: [], //{status,...extra,id:''}
                     };
                 },
-                remove: tunk.createAction(function (id) {
+                remove: tunk.Action(function (id) {
                     var queue = this.getState().queue, queu = [];
                     for (var i = 0, l = queue.length; i < l; i++)
                         if (queue[i].id !== id) queu.push(queue[i]);
                     return { queue: queu };
                 }),
-                update: tunk.createAction(function (state) {
+                update: tunk.Action(function (state) {
                     return state;
                 })
             });
@@ -125,7 +125,7 @@
                 return request.request(options);
             }
 
-            utils.mixin(request);
+            utils.mixin({request: request});
     
             function request(options) {
                 var settings = Object.assign({}, options || {}),
