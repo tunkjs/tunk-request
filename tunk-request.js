@@ -139,7 +139,7 @@
                 if (queue.length === maxQueueLength) queue.pop();
                 queue.unshift(settings.extra);
 
-                tunk.dispatch('REQUEST.update', { queue: queue, pending: true });
+                utils.runAction('REQUEST', 'update', [{ queue: queue, pending: true }]);
 
                 if (!settings.crossDomain) {
                     urlAnchor = document.createElement('a');
@@ -268,8 +268,8 @@
                 settings.success(data, xhr, settings);
                 if (resolve) resolve(data);
                 settings.extra.status = 'success';
-                tunk.dispatch('REQUEST.update', { queue: queue });
-                tunk.dispatch('REQUEST.update', { pending: getPending() });
+                utils.runAction('REQUEST', 'update', [{ queue: queue }]);
+                utils.runAction('REQUEST', 'update', [{ pending: getPending() }]);
                 ajaxComplete(status, xhr, settings);
             }
 
@@ -282,8 +282,8 @@
                 settings.error(error, xhr, settings);
                 settings.extra.status = 'error';
                 settings.extra.errorType = type;
-                tunk.dispatch('REQUEST.update', { queue: queue });
-                tunk.dispatch('REQUEST.update', { pending: getPending() });
+                utils.runAction('REQUEST', 'update', [{ queue: queue }]);
+                utils.runAction('REQUEST', 'update', [{ pending: getPending() }]);
                 //console.log('@@@ajaxError',error,type,settings,xhr);
                 ajaxComplete(type, xhr, settings);
             }
